@@ -32,15 +32,18 @@ export default class DefaultInteropEvaluator extends Plugin {
         if (!isIdentifier(path.node.id)) return;
         if (this.variableIsForDependency(path, ['@babel/runtime/helpers/interopRequireDefault', '@babel/runtime/helpers/interopRequireWildcard'])) {
           const interopVarName = path.node.id.name;
-          this.bindingTraverse(path.scope.bindings[interopVarName], interopVarName, {
+          const binding = path.scope.bindings[interopVarName];
+          if (binding === undefined) return;
+          this.bindingTraverse(binding, interopVarName, {
             CallExpression: (bindingPath) => {
               if (!isIdentifier(bindingPath.node.callee) || bindingPath.node.callee.name !== interopVarName) return;
               if (isCallExpression(bindingPath.node.arguments[0])) {
                 bindingPath.replaceWith(bindingPath.node.arguments[0]);
               } else if (isIdentifier(bindingPath.node.arguments[0])) {
                 const parent = bindingPath.find((p) => p.isVariableDeclarator());
-                if (!parent?.isVariableDeclarator() || !isIdentifier(parent.node.id)) throw new Error('Failed assertion');
-                this.mergeBindings(parent, parent.node.id.name, bindingPath.node.arguments[0].name);
+                if (parent?.isVariableDeclarator() && isIdentifier(parent.node.id)) {
+                  this.mergeBindings(parent, parent.node.id.name, bindingPath.node.arguments[0].name);
+                }
               }
             },
           });

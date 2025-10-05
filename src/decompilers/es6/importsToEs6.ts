@@ -46,7 +46,7 @@ export default class ImportsToEs6 extends Plugin {
             },
           });
           const [newPath] = varDeclar.parentPath.insertBefore(t.importDeclaration([t.importDefaultSpecifier(varIdentifier)], path.node.arguments[0]));
-          newPath.scope.registerBinding('module', newPath);
+          newPath.scope.registerBinding('module', newPath as any);
           varDeclar.remove();
           return;
         }

@@ -17,7 +17,6 @@ import crypto from 'crypto';
 import fs from 'fs-extra';
 import path from 'path';
 import Module from './module';
-import { CachedFile } from './interfaces/cachedFile';
 import CmdArgs from './interfaces/cmdArgs';
 
 export default class CacheParse {
@@ -28,7 +27,7 @@ export default class CacheParse {
   }
 
   async writeCache(filename: string, moduleList: Module[]): Promise<void> {
-    return fs.writeJSON<CachedFile>(filename, {
+    return fs.writeJSON(filename, {
       inputChecksum: await this.generateInputChecksums(this.cmdArgs.in),
       modules: moduleList.filter((ele) => ele != null).map((e) => e.toCache()),
     });

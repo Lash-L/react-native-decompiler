@@ -14,7 +14,7 @@
  */
 
 import * as t from '@babel/types';
-import { Visitor } from '@babel/traverse';
+import { NodePath, Visitor } from '@babel/traverse';
 import { Plugin } from '../../plugin';
 
 /**
@@ -28,46 +28,68 @@ export default class CommaOperatorUnwrapper extends Plugin {
     return {
       ReturnStatement: (path) => {
         const argument = path.get('argument');
-        if (!argument.isSequenceExpression() || argument.get('expressions').length <= 1) return;
+        if (!argument.isSequenceExpression()) return;
         const expressions = argument.get('expressions');
+        if (!Array.isArray(expressions) || expressions.length <= 1) return;
 
         this.debugLog('ReturnStatement:');
         this.debugLog(this.debugPathToCode(path));
 
-        path.insertBefore(this.sequenceExpressionToStatements(expressions.slice(0, -1).map((e) => e.node)));
+        path.insertBefore(this.sequenceExpressionToStatements((expressions as NodePath<t.Expression>[]).slice(0, -1).map((e: NodePath<t.Expression>) => e.node)));
         for (let i = 0; i < expressions.length - 1; i += 1) {
-          expressions[i].remove();
+          (expressions[i] as NodePath).remove();
         }
-        path.get('argument').replaceWith(expressions[expressions.length - 1]);
+        const argumentPath = path.get('argument');
+        if (!Array.isArray(argumentPath)) {
+          argumentPath.replaceWith(expressions[expressions.length - 1] as NodePath);
+        }
       },
       VariableDeclaration: (path) => {
         const declarations = path.get('declarations');
-        declarations.forEach((declarator) => {
+        if (!Array.isArray(declarations)) return;
+
+        declarations.forEach((declarator: NodePath<t.VariableDeclarator>) => {
           const init = declarator.get('init');
           if (!init.isSequenceExpression()) return;
 
-          const validExpressions = init.get('expressions').filter((expression) => {
+          const expressions = init.get('expressions');
+          if (!Array.isArray(expressions)) return;
+
+          const validExpressions = (expressions as NodePath<t.Expression>[]).filter((expression: NodePath<t.Expression>) => {
             if (!expression.isAssignmentExpression()) return true;
             if (!t.isIdentifier(expression.node.left)) return true;
 
-            const matchingDeclaration = declarations.find((declar) => t.isIdentifier(declar.node.id) && declar.node.id.name === (<t.Identifier>expression.node.left).name);
+            const matchingDeclaration = declarations.find((declar) => t.isIdentifier(declar.node.id) && declar.node.id.name === (expression.node.left as t.Identifier).name);
             if (!matchingDeclaration) return true;
 
-            matchingDeclaration.get('init').replaceWith(expression.get('right').node);
+            const rightPath = expression.get('right');
+            if (Array.isArray(rightPath)) return true;
+
+            const matchingInit = matchingDeclaration.get('init');
+            if (Array.isArray(matchingInit)) return true;
+
+            matchingInit.replaceWith(rightPath.node);
             expression.remove();
             return false;
           });
 
-          path.insertBefore(this.sequenceExpressionToStatements(validExpressions.slice(0, -1).map((e) => e.node)));
+          if (validExpressions.length === 0) return;
+
+          path.insertBefore(this.sequenceExpressionToStatements(validExpressions.slice(0, -1).map((e: NodePath<t.Expression>) => e.node)));
           for (let i = 0; i < validExpressions.length - 1; i += 1) {
-            validExpressions[i].remove();
+            (validExpressions[i] as NodePath).remove();
           }
-          declarator.get('init').replaceWith(validExpressions[validExpressions.length - 1]);
+          const declaratorInit = declarator.get('init');
+          if (!Array.isArray(declaratorInit)) {
+            declaratorInit.replaceWith(validExpressions[validExpressions.length - 1] as NodePath);
+          }
         });
       },
       ExpressionStatement: (path) => {
         const expression = path.get('expression');
-        if (!expression.isSequenceExpression() || expression.get('expressions').length <= 1) return;
+        if (!expression.isSequenceExpression()) return;
+        const expressions = expression.get('expressions');
+        if (!Array.isArray(expressions) || expressions.length <= 1) return;
 
         this.debugLog('ExpressionStatement:');
         this.debugLog(this.debugPathToCode(path));

@@ -13,11 +13,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Visitor } from '@babel/traverse';
-import {
-  isMemberExpression,
-  isIdentifier,
-} from '@babel/types';
+import { Visitor, NodePath } from '@babel/traverse';
+import * as t from '@babel/types';
 import { Plugin } from '../../plugin';
 
 /**
@@ -31,17 +28,24 @@ export default class PassthroughModuleRemapper extends Plugin {
     if (this.module.moduleCode.body.length !== 1) return {};
 
     return {
-      AssignmentExpression: (path) => {
-        if (!isMemberExpression(path.node.left) || !isIdentifier(path.node.left?.object) || !isIdentifier(path.node.left?.property)) return;
+      AssignmentExpression: (path: NodePath<t.AssignmentExpression>) => {
+        if (!t.isMemberExpression(path.node.left) || !t.isIdentifier(path.node.left?.object) || !t.isIdentifier(path.node.left?.property)) return;
         if (path.scope.getBindingIdentifier(path.node.left.object.name)?.start !== this.module.moduleParam?.start) return;
         if (path.node.left.property.name !== 'exports') return;
 
         const right = path.get('right');
-        if (!right.isCallExpression()) return;
+        if (Array.isArray(right) || !right.isCallExpression()) return;
+
         const rightCallee = right.get('callee');
+        if (Array.isArray(rightCallee)) return;
+
         if (!rightCallee.isIdentifier() && !rightCallee.isCallExpression()) return;
 
-        const dependency = this.getModuleDependency(rightCallee.isCallExpression() ? rightCallee : right);
+        const callExpr = rightCallee.isCallExpression()
+            ? rightCallee as NodePath<t.CallExpression>
+            : right;
+
+        const dependency = this.getModuleDependency(callExpr);
         if (!dependency) return;
         if (rightCallee.isCallExpression() && !dependency.moduleStrings.find((str) => str.includes('Calling PropTypes validators directly is not supported'))) return;
         if (!this.moduleList.some((m) => m.dependencies.includes(this.module.moduleId))) return;

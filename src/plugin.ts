@@ -138,8 +138,8 @@ export abstract class Plugin {
   protected bindingTraverse(binding: Binding, varName: string, visitor: Visitor): void {
     binding.scope.traverse(binding.scope.block, {
       ...visitor,
-      Scope: (path) => {
-        if (!path.scope.bindingIdentifierEquals(varName, binding.identifier)) {
+      enter: (path: NodePath) => {
+        if (path.isScope() && !path.scope.bindingIdentifierEquals(varName, binding.identifier)) {
           path.skip();
         }
       },

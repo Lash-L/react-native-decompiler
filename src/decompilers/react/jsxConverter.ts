@@ -40,6 +40,9 @@ import {
   JSXText,
   Expression,
   jsxText,
+  isSpreadElement,
+  jsxSpreadAttribute,
+  JSXSpreadAttribute,
 } from '@babel/types';
 import { Plugin } from '../../plugin';
 
@@ -56,13 +59,16 @@ export default class JSXConverter extends Plugin {
         if (!isMemberExpression(path.node.callee) || !isIdentifier(path.node.callee.object) || !isIdentifier(path.node.callee.property)) return;
         if (path.node.callee.object.name !== 'React' || path.node.callee.property.name !== 'createElement') return;
 
-        path.replaceWith(this.parseJsx(path.node));
-        this.module.tags.push('jsx');
+        const res = this.parseJsx(path.node);
+        if (res?.type === 'JSXElement' || res?.type === 'JSXFragment') {
+          path.replaceWith(res);
+          this.module.tags.push('jsx');
+        }
       },
     };
   }
 
-  private parseJsx(node: Expression): JSXText | JSXExpressionContainer | JSXSpreadChild | JSXElement | JSXFragment {
+  private parseJsx(node: Expression): JSXText | JSXExpressionContainer | JSXSpreadChild | JSXElement | JSXFragment | null {
     if (isStringLiteral(node)) {
       return jsxText(node.value);
     }
@@ -75,13 +81,16 @@ export default class JSXConverter extends Plugin {
       } else if (isMemberExpression(args[0]) && isIdentifier(args[0].object) && isIdentifier(args[0].property)) {
         name = jsxMemberExpression(jsxIdentifier(args[0].object.name), jsxIdentifier(args[0].property.name));
       } else {
-        this.debugLog(`fail to parse component ${args[0].type} inside callExpression`);
-        return jsxExpressionContainer(node);
+        this.debugLog(`fail to parse component ${args[0]?.type} inside callExpression`);
+        return null;
       }
 
-      let props: JSXAttribute[] = [];
+      let props: (JSXAttribute | JSXSpreadAttribute)[] = [];
       if (isObjectExpression(args[1])) {
         props = args[1].properties.map((prop) => {
+          if (isSpreadElement(prop)) {
+            return jsxSpreadAttribute(prop.argument);
+          }
           if (!isObjectProperty(prop) || !isIdentifier(prop.key)) return null;
           if (isStringLiteral(prop.value)) {
             return jsxAttribute(jsxIdentifier(prop.key.name), prop.value);
@@ -93,10 +102,10 @@ export default class JSXConverter extends Plugin {
             return jsxAttribute(jsxIdentifier(prop.key.name), jsxExpressionContainer(prop.value));
           }
           return null;
-        }).filter((e): e is JSXAttribute => e != null);
+        }).filter((e): e is (JSXAttribute | JSXSpreadAttribute) => e != null);
       }
 
-      const children = args.slice(2).map((e) => (isExpression(e) ? this.parseJsx(e) : null)).filter((e): e is JSXElement => e != null);
+      const children = args.slice(2).map((e) => (isExpression(e) ? this.parseJsx(e) : null)).filter((e): e is (JSXElement | JSXText | JSXExpressionContainer) => e != null);
 
       if (children.length) {
         return jsxElement(jsxOpeningElement(name, props), jsxClosingElement(name), children);
@@ -105,7 +114,10 @@ export default class JSXConverter extends Plugin {
       return jsxElement(jsxOpeningElement(name, props, true), null, []);
     }
 
-    this.debugLog(`fail to parse component ${node.type}`);
-    return jsxExpressionContainer(node);
+    this.debugLog(`fail to parse component ${node?.type}`);
+    if (isExpression(node)) {
+      return jsxExpressionContainer(node);
+    }
+    return null;
   }
 }
