@@ -70,7 +70,10 @@ export default class BabelClassEvaluator extends Plugin {
       const parentBody = path.find((e) => e.isBlockStatement());
       if (!parentBody?.isBlockStatement()) return;
 
-      const extendsId = parentBody.get('body').map((line) => {
+      const bodyPaths = parentBody.get('body');
+      if (!Array.isArray(bodyPaths)) return;
+
+      const extendsId = bodyPaths.map((line: NodePath) => {
         if (!line.isExpressionStatement() || !t.isCallExpression(line.node.expression)) return null;
         const exp = line.node.expression;
         if (!t.isFunctionExpression(exp.callee) || !t.isIdentifier(exp.arguments[0]) || !t.isExpression(exp.arguments[1])) return null;
@@ -78,7 +81,7 @@ export default class BabelClassEvaluator extends Plugin {
         let hasSuperExpression = false;
 
         line.traverse({
-          StringLiteral: (p) => {
+          StringLiteral: (p: NodePath<t.StringLiteral>) => {
             if (p.node.value.includes('Super expression must either be null or a function')) {
               hasSuperExpression = true;
             }

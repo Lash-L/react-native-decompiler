@@ -86,5 +86,5 @@ export default class BindingArrayMap<V> implements Map<Binding, V[]> {
   values(): IterableIterator<V[]> {
     throw new Error('Method not implemented.');
   }
-  [Symbol.toStringTag]: string;
+  readonly [Symbol.toStringTag]: string = 'BindingArrayMap';
 }

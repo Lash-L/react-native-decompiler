@@ -38,7 +38,9 @@ export default class PassthroughModuleRemapper extends Plugin {
 
         const right = path.get('right');
         if (!right.isCallExpression()) return;
+
         const rightCallee = right.get('callee');
+        if (Array.isArray(rightCallee)) return;
         if (!rightCallee.isIdentifier() && !rightCallee.isCallExpression()) return;
 
         const dependency = this.getModuleDependency(rightCallee.isCallExpression() ? rightCallee : right);

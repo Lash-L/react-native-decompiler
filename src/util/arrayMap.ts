@@ -85,5 +85,5 @@ export default class ArrayMap<K, V> implements Map<K, V[]> {
   values(): IterableIterator<V[]> {
     return this.map.values();
   }
-  [Symbol.toStringTag]: string;
+  readonly [Symbol.toStringTag]: string = 'ArrayMap';
 }

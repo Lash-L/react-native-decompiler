@@ -43,7 +43,7 @@ function calculateModulesToIgnore(argValues: CmdArgs, modules: Module[]): Module
   });
 }
 
-const argValues = commandLineArgs<CmdArgs>([
+const argValues = commandLineArgs([
   { name: 'in', alias: 'i' },
   { name: 'out', alias: 'o' },
   { name: 'entry', alias: 'e', type: Number },
@@ -57,7 +57,7 @@ const argValues = commandLineArgs<CmdArgs>([
   { name: 'unpackOnly', type: Boolean },
   { name: 'noProgress', type: Boolean },
   { name: 'debug', type: Number },
-]);
+]) as CmdArgs;
 if (!argValues.in || !argValues.out) {
   console.log(`react-native-decompiler
 Example command: react-native-decompiler -i index.android.bundle -o ./output

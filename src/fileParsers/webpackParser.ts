@@ -15,7 +15,7 @@
 
 import traverse, { NodePath } from '@babel/traverse';
 import {
-  isNumericLiteral, isFunctionExpression, isIdentifier, File, isMemberExpression, isAssignmentExpression, ArrayExpression, ObjectExpression, isStringLiteral,
+  isNumericLiteral, isFunctionExpression, isIdentifier, File, isMemberExpression, isAssignmentExpression, ArrayExpression, ObjectExpression, isStringLiteral, CallExpression,
 } from '@babel/types';
 import ParamMappings from '../interfaces/paramMappings';
 import Module from '../module';
@@ -46,7 +46,9 @@ export default class WebpackParser extends PerformanceTracker {
               leftPropName = assignment.left.property.value;
             }
             if (leftPropName.startsWith('webpackJsonp')) {
-              const modulesObject = firstArg.get('elements')[1];
+              const elements = firstArg.get('elements');
+              if (!Array.isArray(elements)) return;
+              const modulesObject = elements[1];
               if (modulesObject.isArrayExpression()) {
                 this.parseArray(ast, modulesObject, modules);
               } else {
@@ -62,7 +64,10 @@ export default class WebpackParser extends PerformanceTracker {
   }
 
   private parseArray(file: File, ast: NodePath<ArrayExpression>, modules: Module[]): void {
-    ast.get('elements').forEach((element, i) => {
+    const elements = ast.get('elements');
+    if (!Array.isArray(elements)) return;
+
+    elements.forEach((element, i) => {
       if (!element.isFunctionExpression()) return;
       if (element.node.body.body.length === 0) return;
 
@@ -70,7 +75,7 @@ export default class WebpackParser extends PerformanceTracker {
       const requireIdentifer = element.node.params[2];
       if (isIdentifier(requireIdentifer)) {
         element.traverse({
-          CallExpression: (dependencyPath) => {
+          CallExpression: (dependencyPath: NodePath<CallExpression>) => {
             if (!isIdentifier(dependencyPath.node.callee) || !isNumericLiteral(dependencyPath.node.arguments[0])) return;
             if (dependencyPath.scope.bindingIdentifierEquals(dependencyPath.node.callee.name, requireIdentifer)) {
               dependencyValues[dependencyPath.node.arguments[0].value] = dependencyPath.node.arguments[0].value;
@@ -86,10 +91,14 @@ export default class WebpackParser extends PerformanceTracker {
   }
 
   private parseObject(file: File, ast: NodePath<ObjectExpression>, modules: Module[]): void {
-    ast.get('properties').forEach((property) => {
+    const properties = ast.get('properties');
+    if (!Array.isArray(properties)) return;
+
+    properties.forEach((property) => {
       if (!property.isObjectProperty() || !isNumericLiteral(property.node.key)) return;
 
       const element = property.get('value');
+      if (Array.isArray(element)) return;
       const i = property.node.key.value;
       if (!element.isFunctionExpression()) return;
       if (element.node.body.body.length === 0) return;
@@ -98,7 +107,7 @@ export default class WebpackParser extends PerformanceTracker {
       const requireIdentifer = element.node.params[2];
       if (isIdentifier(requireIdentifer)) {
         element.traverse({
-          CallExpression: (dependencyPath) => {
+          CallExpression: (dependencyPath: NodePath<CallExpression>) => {
             if (!isIdentifier(dependencyPath.node.callee) || !isNumericLiteral(dependencyPath.node.arguments[0])) return;
             if (dependencyPath.scope.bindingIdentifierEquals(dependencyPath.node.callee.name, requireIdentifer)) {
               dependencyValues[dependencyPath.node.arguments[0].value] = dependencyPath.node.arguments[0].value;

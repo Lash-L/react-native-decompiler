@@ -39,7 +39,7 @@ export default class DefaultInteropEvaluator extends Plugin {
                 bindingPath.replaceWith(bindingPath.node.arguments[0]);
               } else if (isIdentifier(bindingPath.node.arguments[0])) {
                 const parent = bindingPath.find((p) => p.isVariableDeclarator());
-                if (!parent?.isVariableDeclarator() || !isIdentifier(parent.node.id)) throw new Error('Failed assertion');
+                if (!parent?.isVariableDeclarator() || !isIdentifier(parent.node.id)) return;
                 this.mergeBindings(parent, parent.node.id.name, bindingPath.node.arguments[0].name);
               }
             },
